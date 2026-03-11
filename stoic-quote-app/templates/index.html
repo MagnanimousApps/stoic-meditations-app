@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Meditate on Meditations</title>
+
+<link rel="manifest" href="/static/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Meditations">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+
+<style>
+body {
+    font-family: Georgia, serif;
+    background:#f2f2f2 url('https://upload.wikimedia.org/wikipedia/commons/0/0f/Marble_texture.jpg') center/cover fixed;
+    margin:0;
+    padding:40px;
+    display:flex;
+    justify-content:center;
+}
+
+.title-block {
+    text-align:center;
+    margin-bottom:25px;
+}
+
+h1 {
+    font-size:38px;
+    margin-bottom:5px;
+}
+
+h2 {
+    font-size:18px;
+    font-weight:normal;
+    color:#666;
+    margin-top:0;
+    font-style:italic;
+}
+
+.quote-card {
+    display:flex;
+    background:white;
+    padding:25px;
+    border-radius:15px;
+    box-shadow:0 10px 25px rgba(0,0,0,.2);
+    max-width:800px;
+}
+
+.portrait {
+    width:180px;
+    border-radius:10px;
+    border:4px solid gold;
+    margin-right:25px;
+}
+
+.quote {
+    font-size:24px;
+    font-style:italic;
+    margin-bottom:12px;
+}
+
+.counter {
+    color:#666;
+    margin-bottom:15px;
+}
+
+.buttons {
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+}
+
+button {
+    background:gold;
+    border:none;
+    padding:10px 18px;
+    border-radius:6px;
+    cursor:pointer;
+    font-size:15px;
+}
+
+button:hover {
+    background:#d4af37;
+}
+
+input[type=number] {
+    width:85px;
+    padding:5px;
+}
+
+.progress {
+    text-align:center;
+    margin-top:20px;
+    color:#444;
+}
+
+@media(max-width:700px) {
+    .quote-card {
+        flex-direction:column;
+        align-items:center;
+    }
+    .portrait {
+        margin:0 0 15px 0;
+        width:140px;
+    }
+}
+</style>
+</head>
+
+<body>
+<div>
+    <div class="title-block">
+        <h1>Meditate on Meditations</h1>
+        <h2>The wisdoms of Marcus Aurelius, one line at a time</h2>
+    </div>
+
+    <div class="quote-card">
+        <img class="portrait" src="{{ url_for('static', filename='marcus.jpg') }}">
+        <div>
+            <div class="quote">"{{ quote }}"</div>
+            <div class="counter">Quote {{ index+1 }} of {{ total_quotes }}</div>
+
+            <div class="buttons">
+                <form method="get">
+                    <input type="hidden" name="index" value="1">
+                    <button>Restart</button>
+                </form>
+
+                <form method="get">
+                    <input type="hidden" name="index" value="{{ prev_index+1 }}">
+                    <button>Previous</button>
+                </form>
+
+                <form method="get">
+                    <input type="hidden" name="index" value="{{ next_index+1 }}">
+                    <button>Next</button>
+                </form>
+
+                <form method="get">
+                    <input type="number" name="index" min="1" max="{{ total_quotes }}" placeholder="Go to">
+                    <button>Go</button>
+                </form>
+
+                <form method="get">
+                    <input type="hidden" name="random" value="1">
+                    <button>Random</button>
+                </form>
+
+                <form method="get">
+                    <input type="hidden" name="daily" value="1">
+                    <button>Daily</button>
+                </form>
+
+                <button onclick="toggleBookmark()">⭐ Bookmark</button>
+                <button onclick="showBookmarks()">📖 Bookmarks</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="progress" id="progress"></div>
+</div>
+
+<script>
+const currentIndex={{index}};
+
+/* BOOKMARKS */
+function toggleBookmark() {
+    let bookmarks = JSON.parse(localStorage.getItem("bookmarks"))||[];
+    if(bookmarks.includes(currentIndex)){
+        bookmarks = bookmarks.filter(i=>i!==currentIndex);
+        alert("Bookmark removed");
+    } else {
+        bookmarks.push(currentIndex);
+        alert("Quote bookmarked!");
+    }
+    localStorage.setItem("bookmarks", JSON.stringify(bookmarks));
+}
+
+function showBookmarks() {
+    let bookmarks = JSON.parse(localStorage.getItem("bookmarks"))||[];
+    if(bookmarks.length===0){
+        alert("No bookmarks yet.");
+        return;
+    }
+    let list = bookmarks.map(i=>`<li><a href="/?index=${i+1}">Quote ${i+1}</a></li>`).join("");
+    let popup = window.open("", "Bookmarks", "width=400,height=500");
+    popup.document.write(`<h2>Your Bookmarks</h2><ul>${list}</ul>`);
+}
+
+/* PROGRESS TRACKER */
+let visited = JSON.parse(localStorage.getItem("visitedQuotes"))||[];
+if(!visited.includes(currentIndex)){ visited.push(currentIndex); }
+localStorage.setItem("visitedQuotes", JSON.stringify(visited));
+
+const total={{total_quotes}};
+const read=visited.length;
+const percent=Math.round((read/total)*100);
+document.getElementById("progress").innerHTML=
+`Progress: ${read} / ${total} quotes (${percent}%)`;
+
+/* KEYBOARD NAVIGATION */
+document.addEventListener("keydown",function(event){
+    if(event.key==="ArrowLeft") window.location.href="/?index={{prev_index+1}}";
+    if(event.key==="ArrowRight") window.location.href="/?index={{next_index+1}}";
+});
+
+/* SWIPE SUPPORT FOR MOBILE */
+let touchstartX = 0, touchendX = 0, swipeThreshold = 50;
+const quoteCard = document.querySelector(".quote-card");
+
+quoteCard.addEventListener("touchstart", function(event){
+    touchstartX = event.changedTouches[0].screenX;
+}, false);
+
+quoteCard.addEventListener("touchend", function(event){
+    touchendX = event.changedTouches[0].screenX;
+    handleSwipe();
+}, false);
+
+function handleSwipe(){
+    let deltaX = touchendX - touchstartX;
+    if(Math.abs(deltaX) > swipeThreshold){
+        if(deltaX < 0){ window.location.href="/?index={{next_index+1}}"; }
+        else{ window.location.href="/?index={{prev_index+1}}"; }
+    }
+}
+
+/* SERVICE WORKER (PWA SUPPORT) */
+if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("/static/sw.js");
+}
+</script>
+
+</body>
+</html>
